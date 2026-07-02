@@ -1,0 +1,74 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Build
+        run: ./py/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: superset-query-linux
+          path: dist/linux/
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Build
+        run: ./py/build.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: superset-query-win
+          path: dist/win/
+
+  ios-ish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup QEMU for ARM64
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+      - name: Build ARM64 Linux binary (for iSH)
+        run: |
+          cat > Dockerfile.build.ios << 'EOF'
+          FROM --platform=linux/arm64 python:3.10-slim
+          RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
+          RUN pip install --no-cache-dir pyinstaller staticx requests cryptography keyring
+          WORKDIR /src
+          COPY py/query_superset.py .
+          RUN pyinstaller --onefile --noconfirm --strip \
+              --name superset-query \
+              --hidden-import cryptography \
+              --hidden-import cryptography.fernet \
+              --hidden-import cryptography.hazmat.backends.openssl \
+              --hidden-import cryptography.hazmat.primitives.ciphers \
+              --hidden-import keyring \
+              --hidden-import keyring.backends \
+              query_superset.py
+          RUN staticx /src/dist/superset-query /src/dist/superset-query-static
+          EOF
+          docker buildx build --platform linux/arm64 --output type=docker --tag builder -f Dockerfile.build.ios .
+          docker create --name extract builder
+          mkdir -p dist/ios
+          docker cp extract:/src/dist/superset-query-static dist/ios/superset-query
+          docker rm extract
+          chmod +x dist/ios/superset-query
+      - uses: actions/upload-artifact@v4
+        with:
+          name: superset-query-ios-ish
+          path: dist/ios/
