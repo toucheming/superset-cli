@@ -47,8 +47,8 @@ jobs:
         run: |
           cat > Dockerfile.build.ios << 'EOF'
           FROM --platform=linux/arm64 python:3.10-slim AS builder
-          RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev scons && rm -rf /var/lib/apt/lists/*
-          RUN pip install --no-cache-dir pyinstaller staticx requests cryptography keyring
+          RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
+          RUN pip install --no-cache-dir pyinstaller requests cryptography keyring
           WORKDIR /src
           COPY py/query_superset.py .
           RUN pyinstaller --onefile --noconfirm --strip \
@@ -60,9 +60,8 @@ jobs:
               --hidden-import keyring \
               --hidden-import keyring.backends \
               query_superset.py
-          RUN staticx /src/dist/superset-query /src/dist/superset-query-static
           FROM scratch
-          COPY --from=builder /src/dist/superset-query-static /superset-query
+          COPY --from=builder /src/dist/superset-query /superset-query
           EOF
           mkdir -p dist/ios
           docker buildx build --platform linux/arm64 \
