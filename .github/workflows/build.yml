@@ -51,39 +51,4 @@ jobs:
           name: superset-query-mac
           path: dist/mac/
 
-  ios-ish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup QEMU for ARM64
-        run: |
-          docker run --privileged --rm tonistiigi/binfmt --install arm64
-      - name: Build ARM64 Linux binary (for iSH)
-        run: |
-          cat > Dockerfile.build.ios << 'EOF'
-          FROM --platform=linux/arm64 python:3.10-slim AS builder
-          RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
-          RUN pip install --no-cache-dir pyinstaller requests cryptography keyring
-          WORKDIR /src
-          COPY py/query_superset.py .
-          RUN pyinstaller --onefile --noconfirm --strip \
-              --name superset-query \
-              --hidden-import cryptography \
-              --hidden-import cryptography.fernet \
-              --hidden-import cryptography.hazmat.backends.openssl \
-              --hidden-import cryptography.hazmat.primitives.ciphers \
-              --hidden-import keyring \
-              --hidden-import keyring.backends \
-              query_superset.py
-          FROM scratch
-          COPY --from=builder /src/dist/superset-query /superset-query
-          EOF
-          mkdir -p dist/ios
-          docker buildx build --platform linux/arm64 \
-            --output type=local,dest=dist/ios \
-            -f Dockerfile.build.ios .
-          chmod +x dist/ios/superset-query
-      - uses: actions/upload-artifact@v4
-        with:
-          name: superset-query-ios-ish
-          path: dist/ios/
+
