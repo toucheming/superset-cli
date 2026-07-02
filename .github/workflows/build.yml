@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build in manylinux container (glibc 2.17 compat)
+      - name: Build in ubuntu:22.04 Docker (glibc 2.35 compat)
         run: |
           cat > Dockerfile.build.linux << 'EOF'
           FROM ubuntu:22.04 AS builder
           ENV DEBIAN_FRONTEND=noninteractive
-          RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip python3-dev && rm -rf /var/lib/apt/lists/*
+          RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip python3-dev binutils && rm -rf /var/lib/apt/lists/*
           RUN python3 -m pip install --no-cache-dir pyinstaller requests cryptography keyring
           WORKDIR /src
           COPY py/query_superset.py .
